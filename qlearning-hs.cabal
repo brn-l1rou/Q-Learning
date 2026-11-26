@@ -14,6 +14,7 @@ library
     hs-source-dirs:   src
     exposed-modules:  Rng
                       Environment
+                      QTable
     build-depends:    base >=4 && <5
                     , containers
 
