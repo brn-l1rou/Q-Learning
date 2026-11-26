@@ -18,6 +18,12 @@ module Environment
   , exampleGrid
   , cellAt
   , validStates
+  , rewardGoal
+  , rewardTrap
+  , rewardStep
+  , isTerminal
+  , move
+  , step
   ) where
 
 -- | As quatro ações possíveis.
@@ -88,3 +94,38 @@ validStates gw =
   [ (r, c) | r <- [0 .. gridRows gw - 1]
            , c <- [0 .. gridCols gw - 1]
            , cellAt gw (r, c) /= Wall ]
+
+-- | Recompensa ao chegar no objetivo.
+rewardGoal :: Double
+rewardGoal = 10
+
+-- | Recompensa (punição) ao cair na armadilha.
+rewardTrap :: Double
+rewardTrap = -10
+
+-- | Custo de cada passo comum. Ser negativo incentiva o caminho mais curto.
+rewardStep :: Double
+rewardStep = -1
+
+-- | Estados terminais encerram o episódio: objetivo e armadilhas.
+isTerminal :: GridWorld -> State -> Bool
+isTerminal gw s = cellAt gw s `elem` [Goal, Trap]
+
+-- | Posição de destino de uma ação (sem checar paredes).
+move :: Action -> State -> State
+move North (r, c) = (r - 1, c)
+move South (r, c) = (r + 1, c)
+move West  (r, c) = (r, c - 1)
+move East  (r, c) = (r, c + 1)
+
+-- | A dinâmica do ambiente: dado o estado e a ação, devolve
+-- (próximo estado, recompensa, episódio terminou?).
+-- Bater em parede ou na borda mantém o agente no lugar e custa um passo.
+step :: GridWorld -> State -> Action -> (State, Double, Bool)
+step gw s a = case cellAt gw destino of
+  Wall  -> (s, rewardStep, False)
+  Goal  -> (destino, rewardGoal, True)
+  Trap  -> (destino, rewardTrap, True)
+  Empty -> (destino, rewardStep, False)
+  where
+    destino = move a s
