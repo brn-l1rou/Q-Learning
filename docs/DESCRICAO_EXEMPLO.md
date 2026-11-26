@@ -6,6 +6,48 @@ O exemplo prático é uma implementação do **Q-Learning tabular** em Haskell. 
 aprende, por tentativa e erro, a sair do início de um labirinto 5×5 e chegar ao objetivo
 desviando de paredes e armadilhas, sem conhecer o mapa de antemão.
 
+## O problema resolvido: o labirinto
+
+Imagine um robô colocado em um labirinto que ele nunca viu. Ele não tem o mapa, não sabe
+onde ficam as paredes nem onde está a saída. A única coisa que recebe é um retorno numérico
+depois de cada movimento: perde 1 ponto a cada passo, ganha 10 ao chegar à saída e perde 10
+se cair em uma armadilha. A pergunta é: só com esse retorno, o robô consegue descobrir
+sozinho o melhor caminho?
+
+```
+ S  .  .  .  .      S = início      G = saída (+10)
+ .  #  #  .  X      # = parede      X = armadilha (−10)
+ .  .  .  #  .      cada passo custa −1
+ X  #  .  .  .
+ .  .  .  #  G
+```
+
+O labirinto foi montado para não ter uma solução óbvia. O caminho pela linha de cima
+parece curto, mas termina em uma armadilha ou em uma parede. A rota correta desce pela
+esquerda, atravessa o meio e chega à saída em **8 passos**, passando ao lado de outra
+armadilha. Encontrar esse caminho exige três coisas, que são justamente as dificuldades
+centrais do aprendizado por reforço:
+
+- **Recompensa atrasada:** o prêmio só aparece no fim. O agente precisa descobrir quais
+  dos passos anteriores foram responsáveis por ele.
+- **Exploração x aproveitamento:** é preciso testar caminhos desconhecidos sem deixar de
+  usar o que já se aprendeu.
+- **Caminho mais curto:** como cada passo custa −1, chegar não basta; é preciso chegar
+  gastando o mínimo.
+
+O Q-Learning resolve isso montando uma tabela com o valor de cada ação em cada uma das
+20 posições, ajustada a cada movimento. No começo o agente anda praticamente ao acaso e
+chega à saída em só 10% das tentativas. Ao longo de 500 tentativas, o valor da saída vai
+"voltando" para as casas anteriores, até formar o caminho. No fim, o agente acerta perto
+de 100% das vezes e segue exatamente a rota ótima de 8 passos. Os valores aprendidos
+coincidem com os calculados à mão. Para comparação, um agente que só escolhe direções ao
+acaso chega à saída em apenas 4% das vezes.
+
+O labirinto é pequeno de propósito, para que todos os resultados possam ser conferidos à
+mão. É a mesma estrutura de problemas reais de decisão em sequência: robôs de armazém
+que aprendem rotas, personagens de jogos, controle de semáforos e roteamento em redes.
+Nesses casos o agente também aprende com recompensas, sem receber um mapa pronto.
+
 ## Elementos do problema
 
 - **Estados:** as 20 posições livres do labirinto (linha, coluna).
@@ -37,4 +79,5 @@ cabal test                       # 28 testes automatizados
 ## Materiais nesta pasta
 
 - `Apresentacao_QLearning_Haskell.pptx`: slides da apresentação.
-
+- `Guia_do_Codigo_QLearning_Haskell.pdf`: explicação de cada trecho do código e
+  perguntas prováveis da arguição.

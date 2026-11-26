@@ -18,7 +18,17 @@ module QLearning
   , defaultParams
   , epsilonAt
   , qUpdate
+  , EpisodeStats(..)
+  , runEpisode
+  , train
   ) where
+
+import qualified Data.List as List
+
+import Environment (Cell(..), GridWorld(..), cellAt, step)
+import Policy (epsilonGreedy)
+import QTable (QTable, emptyQ, getQ, maxQ, setQ)
+import Rng (Gen)
 
 -- | Hiperparâmetros do treinamento.
 data Params = Params
@@ -94,4 +104,3 @@ train p gw g0 = (qFinal, reverse historico)
     episodio (q, g, hs) ep =
       let (q', g', stats) = runEpisode p gw (epsilonAt p ep) q g
       in  q' `seq` (q', g', stats : hs)
-
