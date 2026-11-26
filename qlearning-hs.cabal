@@ -15,6 +15,7 @@ library
     exposed-modules:  Rng
                       Environment
                       QTable
+                      Policy
     build-depends:    base >=4 && <5
                     , containers
 
