@@ -11,6 +11,7 @@ import Control.Monad (unless)
 import System.Exit (exitFailure)
 
 import Environment
+import Evaluation
 import Policy
 import QLearning
 import QTable
@@ -41,6 +42,10 @@ acoesSorteadas n politica = take n (go (mkGen 1))
 -- | Tabela de exemplo em que a melhor ação do início é East.
 tabelaEast :: QTable
 tabelaEast = setQ (0, 0) East 5 (setQ (0, 0) South 2 emptyQ)
+
+-- | Agente treinado com os parâmetros padrão e semente 42.
+treinado :: (QTable, [EpisodeStats])
+treinado = train defaultParams exampleGrid (mkGen 42)
 
 -- | Testes rápidos: gerador, ambiente, tabela Q, regra de atualização e políticas.
 testes :: [IO Bool]
@@ -102,10 +107,34 @@ testes =
       && epsilonAt defaultParams 10000 == epsilonMin defaultParams
   ]
 
+-- | Testes do treinamento (mais lentos, por isso ficam numa lista separada).
+testesTreino :: [IO Bool]
+testesTreino =
+  [ teste "Treino gera uma estatistica por episodio" $
+      length (snd treinado) == numEpisodes defaultParams
+  , teste "Politica treinada leva do inicio ao objetivo" $
+      reachesGoal exampleGrid (greedyPath exampleGrid (fst treinado) 50)
+  , teste "Politica treinada usa o caminho mais curto (8 passos)" $
+      length (greedyPath exampleGrid (fst treinado) 50) - 1 == 8
+  , teste "Taxa de sucesso no fim do treino e maior que no inicio" $
+      let hs = snd treinado
+      in  successRate (drop 400 hs) > successRate (take 100 hs)
+  , teste "Agente treinado supera o agente aleatorio" $
+      successRate (drop 400 (snd treinado))
+        > randomSuccessRate exampleGrid 100 1000 (mkGen 42)
+  , teste "Valor cresce ao se aproximar do objetivo: V(3,4) > V(2,4) > V(0,0)" $
+      let q = fst treinado
+      in  maxQ q (3, 4) > maxQ q (2, 4) && maxQ q (2, 4) > maxQ q (0, 0)
+  , teste "Nenhum valor Q passa da recompensa maxima (10)" $
+      all (\s -> maxQ (fst treinado) s <= rewardGoal) (validStates exampleGrid)
+  , teste "chunksOf divide a lista em blocos" $
+      chunksOf 2 [1, 2, 3 :: Int] == [[1, 2], [3]]
+  ]
+
 -- | Roda todos os testes e encerra com erro se algum falhar.
 main :: IO ()
 main = do
-  resultados <- sequence testes
+  resultados <- sequence (testes ++ testesTreino)
   let total  = length resultados
       falhas = length (filter not resultados)
   putStrLn ""
