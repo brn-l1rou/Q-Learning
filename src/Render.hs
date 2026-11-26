@@ -7,10 +7,16 @@ module Render
   ( renderGrid
   , renderPolicy
   , actionArrow
+  , renderValues
+  , renderPath
+  , renderQValues
+  , fmt
   ) where
 
+import Text.Printf (printf)
+
 import Environment (Action(..), Cell(..), GridWorld(..), State, cellAt)
-import QTable (QTable, bestAction)
+import QTable (QTable, bestAction, maxQ, qValues)
 
 -- | Desenha a grade aplicando uma função a cada posição.
 desenhar :: GridWorld -> (State -> String) -> String
@@ -46,3 +52,33 @@ renderPolicy gw q = desenhar gw celula
     celula s = case cellAt gw s of
       Empty -> " " ++ actionArrow (bestAction q s) ++ " "
       _     -> maybe " . " id (simbolo gw s)
+
+-- | A função de valor V(s) = max_a Q(s,a) em cada célula.
+renderValues :: GridWorld -> QTable -> String
+renderValues gw q = desenhar gw celula
+  where
+    celula s = case cellAt gw s of
+      Wall  -> "  #####"
+      Trap  -> "  TRAP "
+      Goal  -> "  GOAL "
+      Empty -> printf "%7.2f" (maxQ q s)
+
+-- | O caminho percorrido, marcado com '*'.
+renderPath :: GridWorld -> [State] -> String
+renderPath gw caminho = desenhar gw celula
+  where
+    celula s
+      | cellAt gw s == Empty && s /= startState gw && s `elem` caminho = " * "
+      | otherwise = maybe " . " id (simbolo gw s)
+
+-- | Os quatro valores Q de um estado, um por linha.
+renderQValues :: QTable -> State -> String
+renderQValues q s = unlines
+  [ "  Q(" ++ show s ++ ", " ++ pad (show a) ++ ") = " ++ fmt v
+  | (a, v) <- qValues q s ]
+  where
+    pad t = t ++ replicate (5 - length t) ' '
+
+-- | Formata um número com 2 casas decimais.
+fmt :: Double -> String
+fmt = printf "%.2f"
