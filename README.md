@@ -89,17 +89,17 @@ de estados enormes ou contínuos (para isso existem Linear Q-Learning e Deep Q-L
 
 ## Integrantes
 
-|Integrante|Commits|
+
 |-|-|
-|Integrante 1 - Bruno|01, 05|
-|Integrante 2 - Guilherme R|02, 06|
-|Integrante 3 - Lucas|03, 08|
-|Integrante 4 - Alexandre|04, 07|
-|Integrante 5 - Artur|09, 15|
-|Integrante 6 - Henrique|10, 16|
-|Integrante 7 - Thiago|11, 14|
-|Integrante 8 - Murilo|12, 13|
-|Integrante 9 - Guilherme T|17, 18|
+|Bruno Santos|
+|Guilherme Ribeiro|
+|Lucas Andrade|
+|Alexandre|
+|Artur|
+|Henrique|
+|Thiago|
+|Murilo|
+|Guilherme Tabarin|
 
 
 
