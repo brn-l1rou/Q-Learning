@@ -59,3 +59,39 @@ qUpdate p qAtual recompensa maxProximo terminal =
     alvo
       | terminal  = recompensa
       | otherwise = recompensa + gamma p * maxProximo
+
+-- | Resumo de um episódio.
+data EpisodeStats = EpisodeStats
+  { epReward      :: Double  -- ^ soma das recompensas do episódio
+  , epSteps       :: Int     -- ^ passos dados
+  , epReachedGoal :: Bool    -- ^ terminou no objetivo?
+  } deriving (Show, Eq)
+
+-- | Executa um episódio completo: do início até um estado terminal ou até
+-- o limite de passos, atualizando a tabela Q a cada passo.
+runEpisode :: Params -> GridWorld -> Double -> QTable -> Gen -> (QTable, Gen, EpisodeStats)
+runEpisode p gw epsilon q0 g0 = passo (startState gw) q0 g0 0 0
+  where
+    passo s q g passos total
+      | passos >= maxSteps p = (q, g, EpisodeStats total passos False)
+      | otherwise =
+          let (a, g')      = epsilonGreedy epsilon q s g        -- 1. escolhe a ação
+              (s', r, fim) = step gw s a                       -- 2. age no ambiente
+              novoValor    = qUpdate p (getQ q s a) r (maxQ q s') fim
+              q'           = setQ s a novoValor q               -- 3. atualiza Q(s,a)
+              total'       = total + r
+          in if fim
+               then (q', g', EpisodeStats total' (passos + 1) (cellAt gw s' == Goal))
+               else passo s' q' g' (passos + 1) total'          -- 4. continua de s'
+
+-- | Treina por 'numEpisodes' episódios, começando com a tabela vazia.
+-- Devolve a tabela final e as estatísticas de cada episódio, em ordem.
+train :: Params -> GridWorld -> Gen -> (QTable, [EpisodeStats])
+train p gw g0 = (qFinal, reverse historico)
+  where
+    (qFinal, _, historico) = List.foldl' episodio (emptyQ, g0, []) [0 .. numEpisodes p - 1]
+
+    episodio (q, g, hs) ep =
+      let (q', g', stats) = runEpisode p gw (epsilonAt p ep) q g
+      in  q' `seq` (q', g', stats : hs)
+
