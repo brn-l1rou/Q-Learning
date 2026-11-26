@@ -1,21 +1,92 @@
--- | Programa de demonstração do Q-Learning (versão parcial).
--- Por enquanto apenas mostra o gerador de números aleatórios funcionando.
+-- |
+-- Programa de demonstração do Q-Learning.
+--
+-- Uso:  cabal run qlearning-demo            (semente padrão = 42)
+--       cabal run qlearning-demo -- 7       (outra semente aleatória)
+--
+-- O programa:
+--   1. apresenta o ambiente (labirinto, recompensas e hiperparâmetros);
+--   2. mostra, passo a passo, contas reais da atualização da tabela Q.
 module Main (main) where
 
-import Rng (Gen, mkGen, nextDouble)
+import Data.Char (isDigit)
+import System.Environment (getArgs)
+import System.IO (BufferMode(..), hSetBuffering, stdout)
+import Text.Printf (printf)
+
+import Environment
+import QLearning
+import QTable
+import Render
 
 main :: IO ()
 main = do
-  putStrLn "Q-Learning em Haskell"
-  putStrLn ""
-  putStrLn "5 sorteios com a semente 42:"
-  mapM_ (putStrLn . ("  " ++) . show) (sorteios 5 (mkGen 42))
-  putStrLn "5 sorteios com a semente 42 de novo (mesmos valores):"
-  mapM_ (putStrLn . ("  " ++) . show) (sorteios 5 (mkGen 42))
+  hSetBuffering stdout NoBuffering
+  semente <- lerSemente
+  let gw = exampleGrid
+      p  = defaultParams
+  titulo "Q-LEARNING EM HASKELL - DEMONSTRACAO"
+  putStrLn ("Semente aleatoria: " ++ show semente)
+  secaoAmbiente gw p
+  secaoPassoAPasso gw p
+  titulo "Fim da demonstracao"
 
--- | Gera n números em [0, 1), passando o gerador de um sorteio para o outro.
-sorteios :: Int -> Gen -> [Double]
-sorteios 0 _ = []
-sorteios n g = d : sorteios (n - 1) g'
-  where
-    (d, g') = nextDouble g
+-- | Lê a semente do primeiro argumento (padrão 42).
+lerSemente :: IO Int
+lerSemente = do
+  args <- getArgs
+  return $ case args of
+    (d : _) | not (null d), all isDigit d -> read d
+    _                                     -> 42
+
+-- | 1. O ambiente e os parâmetros.
+secaoAmbiente :: GridWorld -> Params -> IO ()
+secaoAmbiente gw p = do
+  titulo "1. O ambiente (estados, acoes e recompensas)"
+  putStr (renderGrid gw)
+  putStrLn ""
+  putStrLn "Legenda: S inicio | G objetivo | X armadilha | # parede | . livre"
+  putStrLn ("Estados validos : " ++ show (length (validStates gw)) ++ " posicoes (linha, coluna)")
+  putStrLn ("Acoes           : " ++ show allActions)
+  putStrLn ("Recompensas     : objetivo " ++ fmt rewardGoal ++ " | armadilha " ++ fmt rewardTrap
+            ++ " | cada passo " ++ fmt rewardStep)
+  printf "Hiperparametros : alpha = %.2f | gamma = %.2f | epsilon %.2f -> %.2f (x%.2f por episodio)\n"
+         (alpha p) (gamma p) (epsilonStart p) (epsilonMin p) (epsilonDecay p)
+  putStrLn ("Treino          : " ++ show (numEpisodes p) ++ " episodios de ate "
+            ++ show (maxSteps p) ++ " passos")
+
+-- | 2. Três atualizações calculadas à mão, com os números reais.
+secaoPassoAPasso :: GridWorld -> Params -> IO ()
+secaoPassoAPasso gw p = do
+  titulo "2. Passo a passo da atualizacao da tabela Q"
+  putStrLn "Regra: Q(s,a) <- Q(s,a) + alpha * [ r + gamma * max Q(s',.) - Q(s,a) ]"
+  q1 <- mostrarAtualizacao gw p emptyQ (0, 0) East
+  q2 <- mostrarAtualizacao gw p q1 (3, 4) South
+  _  <- mostrarAtualizacao gw p q2 (2, 4) South
+  putStrLn ""
+  putStrLn "Repare no ultimo exemplo: o valor positivo do objetivo comecou a"
+  putStrLn "'voltar' para os estados anteriores. Com muitos episodios ele se"
+  putStrLn "propaga ate o inicio e forma o caminho."
+
+-- | Executa um único passo (s, a), imprime a conta e devolve a tabela atualizada.
+mostrarAtualizacao :: GridWorld -> Params -> QTable -> State -> Action -> IO QTable
+mostrarAtualizacao gw p q s a = do
+  let (s', r, fim) = step gw s a
+      qAntes       = getQ q s a
+      maxProx      = if fim then 0 else maxQ q s'
+      qDepois      = qUpdate p qAntes r (maxQ q s') fim
+  putStrLn ""
+  putStrLn ("Estado s = " ++ show s ++ ", acao a = " ++ show a
+            ++ "  ->  s' = " ++ show s' ++ ", r = " ++ fmt r
+            ++ (if fim then " (terminal)" else ""))
+  printf "  Q(s,a) = %.2f + %.2f * [ %.2f + %.2f * %.2f - %.2f ] = %.4f\n"
+         qAntes (alpha p) r (if fim then 0 else gamma p) maxProx qAntes qDepois
+  return (setQ s a qDepois q)
+
+-- | Imprime um título de seção.
+titulo :: String -> IO ()
+titulo t = do
+  putStrLn ""
+  putStrLn (replicate 72 '=')
+  putStrLn t
+  putStrLn (replicate 72 '=')
