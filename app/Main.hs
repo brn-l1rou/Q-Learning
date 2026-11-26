@@ -6,7 +6,9 @@
 --
 -- O programa:
 --   1. apresenta o ambiente (labirinto, recompensas e hiperparâmetros);
---   2. mostra, passo a passo, contas reais da atualização da tabela Q.
+--   2. mostra, passo a passo, contas reais da atualização da tabela Q;
+--   3. treina o agente e mostra a evolução por blocos de episódios;
+--   4. exibe a política aprendida, a função de valor e o caminho final.
 module Main (main) where
 
 import Data.Char (isDigit)
@@ -15,9 +17,11 @@ import System.IO (BufferMode(..), hSetBuffering, stdout)
 import Text.Printf (printf)
 
 import Environment
+import Evaluation
 import QLearning
 import QTable
 import Render
+import Rng (mkGen)
 
 main :: IO ()
 main = do
@@ -29,6 +33,8 @@ main = do
   putStrLn ("Semente aleatoria: " ++ show semente)
   secaoAmbiente gw p
   secaoPassoAPasso gw p
+  q <- secaoTreinamento gw p semente
+  secaoPolitica gw q
   titulo "Fim da demonstracao"
 
 -- | Lê a semente do primeiro argumento (padrão 42).
@@ -82,6 +88,41 @@ mostrarAtualizacao gw p q s a = do
   printf "  Q(s,a) = %.2f + %.2f * [ %.2f + %.2f * %.2f - %.2f ] = %.4f\n"
          qAntes (alpha p) r (if fim then 0 else gamma p) maxProx qAntes qDepois
   return (setQ s a qDepois q)
+
+-- | 3. Treinamento, mostrando a evolução a cada 50 episódios.
+secaoTreinamento :: GridWorld -> Params -> Int -> IO QTable
+secaoTreinamento gw p semente = do
+  titulo "3. Treinamento"
+  let (q, historico) = train p gw (mkGen semente)
+      tamanho        = 50
+  putStrLn "Episodios  | epsilon | recompensa media | passos medios | sucesso"
+  mapM_ (\(i, bloco) -> do
+          let ini = i * tamanho
+          printf "%4d-%-4d  |  %.2f   |      %7.2f     |     %5.1f     |  %3.0f%%\n"
+                 (ini + 1) (ini + length bloco) (epsilonAt p ini)
+                 (averageReward bloco) (averageSteps bloco) (100 * successRate bloco))
+        (zip [0 :: Int ..] (chunksOf tamanho historico))
+  putStrLn ""
+  putStrLn "No inicio o agente explora quase ao acaso (epsilon alto) e cai em"
+  putStrLn "armadilhas; conforme epsilon diminui ele passa a usar o que aprendeu."
+  return q
+
+-- | 4. Política aprendida, função de valor e caminho final.
+secaoPolitica :: GridWorld -> QTable -> IO ()
+secaoPolitica gw q = do
+  titulo "4. Politica aprendida (melhor acao em cada estado)"
+  putStr (renderPolicy gw q)
+  titulo "5. Funcao de valor V(s) = max_a Q(s,a)"
+  putStr (renderValues gw q)
+  putStrLn ""
+  putStrLn "Valores Q do estado inicial:"
+  putStr (renderQValues q (startState gw))
+  titulo "6. Caminho seguindo a politica gulosa (sem exploracao)"
+  let caminho = greedyPath gw q 50
+  putStr (renderPath gw caminho)
+  putStrLn ""
+  putStrLn ("Passos: " ++ show (length caminho - 1)
+            ++ (if reachesGoal gw caminho then " | chegou ao objetivo!" else " | NAO chegou ao objetivo"))
 
 -- | Imprime um título de seção.
 titulo :: String -> IO ()
