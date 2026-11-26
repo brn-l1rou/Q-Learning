@@ -8,7 +8,8 @@
 --   1. apresenta o ambiente (labirinto, recompensas e hiperparâmetros);
 --   2. mostra, passo a passo, contas reais da atualização da tabela Q;
 --   3. treina o agente e mostra a evolução por blocos de episódios;
---   4. exibe a política aprendida, a função de valor e o caminho final.
+--   4. exibe a política aprendida, a função de valor e o caminho final;
+--   5. compara estratégias de exploração x aproveitamento.
 module Main (main) where
 
 import Data.Char (isDigit)
@@ -35,6 +36,7 @@ main = do
   secaoPassoAPasso gw p
   q <- secaoTreinamento gw p semente
   secaoPolitica gw q
+  secaoExploracao gw p semente
   titulo "Fim da demonstracao"
 
 -- | Lê a semente do primeiro argumento (padrão 42).
@@ -123,6 +125,41 @@ secaoPolitica gw q = do
   putStrLn ""
   putStrLn ("Passos: " ++ show (length caminho - 1)
             ++ (if reachesGoal gw caminho then " | chegou ao objetivo!" else " | NAO chegou ao objetivo"))
+
+-- | 5. Comparação de estratégias de exploração.
+secaoExploracao :: GridWorld -> Params -> Int -> IO ()
+secaoExploracao gw p semente = do
+  titulo "7. Exploracao x aproveitamento"
+  let configuracoes =
+        [ ("Sem exploracao (epsilon = 0)", p { epsilonStart = 0,   epsilonMin = 0 })
+        , ("epsilon fixo = 0.1",           p { epsilonStart = 0.1, epsilonMin = 0.1 })
+        , ("epsilon fixo = 0.5",           p { epsilonStart = 0.5, epsilonMin = 0.5 })
+        , ("epsilon decrescente 1 -> 0.05", p)
+        ]
+      naoTerminais = filter (not . isTerminal gw) (validStates gw)
+      totalPares   = length naoTerminais * length allActions
+  putStrLn "Estrategia                     | sucesso (100 ult.) | recomp. media | pares (s,a) testados | politica final"
+  mapM_ (\(nome, cfg) -> do
+          let (q, historico) = train cfg gw (mkGen semente)
+              ultimos        = drop (length historico - 100) historico
+              caminho        = greedyPath gw q 50
+              resultado
+                | reachesGoal gw caminho = "objetivo em " ++ show (length caminho - 1) ++ " passos"
+                | otherwise              = "nao chega"
+          printf "%-30s |        %3.0f%%        |    %6.2f     |       %2d de %2d       | %s\n"
+                 nome (100 * successRate ultimos) (averageReward ultimos)
+                 (visitedPairs q) totalPares resultado)
+        configuracoes
+  let aleatorio = randomSuccessRate gw (maxSteps p) 1000 (mkGen semente)
+  printf "%-30s |        %3.0f%%        |       -       |          -           | -\n"
+         "Agente aleatorio (nao aprende)" (100 * aleatorio)
+  putStrLn ""
+  putStrLn "* Muita exploracao (epsilon = 0.5) custa caro durante o treino."
+  putStrLn "* Sem exploracao o agente testa menos pares (s,a): conhece menos o"
+  putStrLn "  ambiente. Aqui ele ainda acha o objetivo porque Q comeca em 0 e cada"
+  putStrLn "  passo custa -1: acoes nunca testadas parecem melhores que as ja"
+  putStrLn "  testadas (exploracao implicita, ou 'inicializacao otimista')."
+  putStrLn "* O epsilon decrescente explora bastante no comeco e aproveita no final."
 
 -- | Imprime um título de seção.
 titulo :: String -> IO ()
