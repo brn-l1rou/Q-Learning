@@ -1,15 +1,3 @@
--- |
--- Programa de demonstração do Q-Learning.
---
--- Uso:  cabal run qlearning-demo            (semente padrão = 42)
---       cabal run qlearning-demo -- 7       (outra semente aleatória)
---
--- O programa:
---   1. apresenta o ambiente (labirinto, recompensas e hiperparâmetros);
---   2. mostra, passo a passo, contas reais da atualização da tabela Q;
---   3. treina o agente e mostra a evolução por blocos de episódios;
---   4. exibe a política aprendida, a função de valor e o caminho final;
---   5. compara estratégias de exploração x aproveitamento.
 module Main (main) where
 
 import Data.Char (isDigit)
@@ -39,7 +27,6 @@ main = do
   secaoExploracao gw p semente
   titulo "Fim da demonstracao"
 
--- | Lê a semente do primeiro argumento (padrão 42).
 lerSemente :: IO Int
 lerSemente = do
   args <- getArgs
@@ -47,7 +34,6 @@ lerSemente = do
     (d : _) | not (null d), all isDigit d -> read d
     _                                     -> 42
 
--- | 1. O ambiente e os parâmetros.
 secaoAmbiente :: GridWorld -> Params -> IO ()
 secaoAmbiente gw p = do
   titulo "1. O ambiente (estados, acoes e recompensas)"
@@ -63,7 +49,6 @@ secaoAmbiente gw p = do
   putStrLn ("Treino          : " ++ show (numEpisodes p) ++ " episodios de ate "
             ++ show (maxSteps p) ++ " passos")
 
--- | 2. Três atualizações calculadas à mão, com os números reais.
 secaoPassoAPasso :: GridWorld -> Params -> IO ()
 secaoPassoAPasso gw p = do
   titulo "2. Passo a passo da atualizacao da tabela Q"
@@ -76,7 +61,6 @@ secaoPassoAPasso gw p = do
   putStrLn "'voltar' para os estados anteriores. Com muitos episodios ele se"
   putStrLn "propaga ate o inicio e forma o caminho."
 
--- | Executa um único passo (s, a), imprime a conta e devolve a tabela atualizada.
 mostrarAtualizacao :: GridWorld -> Params -> QTable -> State -> Action -> IO QTable
 mostrarAtualizacao gw p q s a = do
   let (s', r, fim) = step gw s a
@@ -91,7 +75,6 @@ mostrarAtualizacao gw p q s a = do
          qAntes (alpha p) r (if fim then 0 else gamma p) maxProx qAntes qDepois
   return (setQ s a qDepois q)
 
--- | 3. Treinamento, mostrando a evolução a cada 50 episódios.
 secaoTreinamento :: GridWorld -> Params -> Int -> IO QTable
 secaoTreinamento gw p semente = do
   titulo "3. Treinamento"
@@ -109,7 +92,6 @@ secaoTreinamento gw p semente = do
   putStrLn "armadilhas; conforme epsilon diminui ele passa a usar o que aprendeu."
   return q
 
--- | 4. Política aprendida, função de valor e caminho final.
 secaoPolitica :: GridWorld -> QTable -> IO ()
 secaoPolitica gw q = do
   titulo "4. Politica aprendida (melhor acao em cada estado)"
@@ -126,7 +108,6 @@ secaoPolitica gw q = do
   putStrLn ("Passos: " ++ show (length caminho - 1)
             ++ (if reachesGoal gw caminho then " | chegou ao objetivo!" else " | NAO chegou ao objetivo"))
 
--- | 5. Comparação de estratégias de exploração.
 secaoExploracao :: GridWorld -> Params -> Int -> IO ()
 secaoExploracao gw p semente = do
   titulo "7. Exploracao x aproveitamento"
@@ -161,7 +142,6 @@ secaoExploracao gw p semente = do
   putStrLn "  testadas (exploracao implicita, ou 'inicializacao otimista')."
   putStrLn "* O epsilon decrescente explora bastante no comeco e aproveita no final."
 
--- | Imprime um título de seção.
 titulo :: String -> IO ()
 titulo t = do
   putStrLn ""
